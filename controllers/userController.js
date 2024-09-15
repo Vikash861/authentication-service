@@ -21,12 +21,13 @@ class UserController {
           const otp = generateOTP()
           const salt = await bcrypt.genSalt(10)
           const hashPassword = await bcrypt.hash(password, salt)
+          const hashedOtp = await bcrypt.hash(otp, salt)
           const tempUser = new TempUserModel({
             name: name,
             email: email,
             password: hashPassword,
-            otp: otp,
-            otpExpiration: Date.now() + 5 * 60000,
+            otp: hashedOtp,
+            otp_expiry: Date.now() + 5 * 60000,
             tc: tc
           })
           await tempUser.save()
@@ -42,7 +43,7 @@ class UserController {
           return res.status(200).send({ "status": "success", "message": "OTP sent to your email. Verify it to complete registration." });
         } catch (error) {
           console.log(error)
-          res.send({ "status": "failed", "message": "Unable to send OTP" })
+          res.send({ "status": "failed", "message": "Unable to send OTP. Please verify your Email" })
         }
       } else {
         res.send({ "status": "failed", "message": "Password and Confirm Password doesn't match" })
@@ -63,15 +64,16 @@ class UserController {
       if (isRegistered) {
         return res.send({ "status": "failed", "message": "User already registered try to login" });
       } else {
-        return res.send({ "status": "failed", "message": "User not registered. please try to" });
+        return res.send({ "status": "failed", "message": "User not registered. Please try to register first" });
       }
     }
 
-    if (tempUser.otp !== otp) {
-      return res.send({ "status": "failed", "message": "Invalid or expired OTP" });
+    const otpMatch = await bcrypt.compare(otp, tempUser.otp);
+    if (otpMatch) {
+      return res.send({ "status": "failed", "message": "Invalid OTP" });
     }
 
-    if (tempUser.otpExpiration < Date.now()) {
+    if (tempUser.otp_expiry < Date.now()) {
       return res.send({ "status": "failed", "message": "Otp has been expired" });
     }
 
@@ -83,8 +85,8 @@ class UserController {
         password: tempUser.password,
         tc: tempUser.tc
       });
-      // cleaning up the temporary user object
       await user.save();
+      // cleaning up the temporary user object
       await TempUserModel.deleteOne({ email });
       // Generate JWT Token
       const token = jwt.sign({ userID: user._id }, process.env.JWT_SECRET_KEY, { expiresIn: '5d' });
@@ -100,23 +102,18 @@ class UserController {
       const { email, password } = req.body;
       if (email && password) {
         const user = await UserModel.findOne({ email: email });
+        console.log(user)
         if (user != null) {
           const passwordMatch = await bcrypt.compare(password, user.password);
-          if ((user.email === email) && password) {
+          if ((user.email === email) && passwordMatch) {
 
-            const otp = otpGenerator.generate(6, { digits: true, alphabets: false, upperCase: false, specialChars: false });
-
-            user.otp = otp;
-            user.otpExpiration = Date.now() + 5 * 60000;
+            const otp = generateOTP();
+            const salt = await bcrypt.genSalt(10)
+            const hashedOtp = await bcrypt.hash(otp, salt)
+            user.otp = hashedOtp;
+            user.otp_expiry = Date.now() + 5 * 60000;
+      
             await user.save();
-
-            const transporter = nodemailer.createTransport({
-              service: 'gmail',
-              auth: {
-                user: process.env.EMAIL,
-                pass: process.env.PASSWORD
-              }
-            });
 
             const mailOptions = {
               from: process.env.EMAIL,
@@ -148,25 +145,25 @@ class UserController {
   
     try {
       const user = await UserModel.findOne({ email });
-  
+
       if (!user) {
         return res.send({ "status": "failed", "message": "User not registered. Please sign up." });
       }
       
-      if (user.otp !== otp) {
+      const otpMatch = await bcrypt.compare(otp, user.otp);
+      if (!otpMatch) {
         return res.send({ "status": "failed", "message": "Invalid Otp" });
       }
   
-      if (user.otpExpiration < Date.now()) {
+      if (user.otp_expiry < Date.now()) {
         return res.send({ "status": "failed", "message": "OTP has expired" });
       }
-  
 
       const token = jwt.sign({ userID: user._id }, process.env.JWT_SECRET_KEY, { expiresIn: '5d' });
   
       // cleaning up otp and expiration from user
       user.otp = null;
-      user.otpExpiration = null;
+      user.otp_expiry = null;
       await user.save();
   
       return res.status(200).send({ "status": "success", "message": "Login successful", "token": token });
