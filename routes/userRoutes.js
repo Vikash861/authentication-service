@@ -19,7 +19,7 @@ router.post('/set-new-password', ForgotPasswordController.setNewPassword)
 router.post('/send-reset-password-email', UserController.sendUserPasswordResetEmail)
 router.post('/reset-password/:id/:token', UserController.userPasswordReset)
 
-// Protected Routes
+// Protected Route
 router.post('/changepassword', UserController.changeUserPassword)
 router.get('/loggeduser', UserController.loggedUser)
 

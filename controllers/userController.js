@@ -9,14 +9,17 @@ class UserController {
 
   static userRegistration = async (req, res) => {
     const { name, email, password, password_confirmation, tc } = req.body
-    const user = await UserModel.findOne({ email: email })
-    if (user) {
-      return res.send({ "status": "failed", "message": "Email already exists please try to login" })
-    }
-
     if (name && email && password && password_confirmation && tc) {
       if (password === password_confirmation) {
         try {
+
+          const user = await UserModel.findOne({ email: email })
+          if (user) {
+            return res.status(409).send({ "status": "failed", "message": "Email already exists please try to login" })
+          }
+
+          // check if user already exits in tempUserModel then delete all it before saving new user
+          await TempUserModel.deleteMany({ email });
 
           const otp = generateOTP()
           const salt = await bcrypt.genSalt(10)
@@ -40,18 +43,27 @@ class UserController {
           };
           await transporter.sendMail(mailOptions);
 
-          const accessToken = await user.getAccessToken();
+          const accessToken = jwt.sign(
+            {
+              email: email,
+            },
+            process.env.ACCESS_TOKEN_SECRET,
+            {
+              expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+            }
+          )
+
 
           const options = {
             httpOnly: true,
             secure: true
           }
 
-          return res.status(200).cookie("accessToken", accessToken, options).send({ "status": "success", "message": "OTP sent to your email. Verify it to complete registration." });
+          return res.status(200).cookie("accessToken", accessToken, options).send({ "status": "success", "message": "OTP sent to your email. Verify it to complete registration.", "accessToken": accessToken });
 
         } catch (error) {
           console.log(error)
-          res.send({ "status": "failed", "message": "Unable to send OTP. Please verify your Email" })
+          res.status(500).send({ "status": "failed", "message": "Unable to send OTP. Please verify your Email" })
         }
       } else {
         res.send({ "status": "failed", "message": "Password and Confirm Password doesn't match" })
@@ -66,48 +78,54 @@ class UserController {
     const { otp } = req.body;
     const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
     if (!token) {
-      return res.status(401).send({ "status": "failed", "message": "Unauthorized request"})
-    }
-    const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
-    const email = decodedToken?.email;
-    const tempUser = await TempUserModel.findOne({ email });
-    
-    if (!tempUser) {
-      const isRegistered = await UserModel.findOne({ email });
-      if (isRegistered) {
-        return res.status(409).send({ "status": "failed", "message": "User already registered try to login" });
-      } else {
-        return res.status(404).send({ "status": "failed", "message": "User not registered. Please try to register first" });
-      }
-    }
-
-    const otpMatch = await bcrypt.compare(otp, tempUser.otp);
-    if (!otpMatch) {
-      return res.status(400).send({ "status": "failed", "message": "Invalid OTP" });
-    }
-
-    if (tempUser.otp_expiry < Date.now()) {
-      return res.status(410).send({ "status": "failed", "message": "OTP has expired" });
+      return res.status(401).send({ "status": "failed", "message": "Unauthorized request" })
     }
 
     try {
+
+      const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
+      const email = decodedToken?.email;
+      const tempUser = await TempUserModel.findOne({ email });
+
+      if (!tempUser) {
+        const isRegistered = await UserModel.findOne({ email });
+        if (isRegistered) {
+          return res.status(409).send({ "status": "failed", "message": "User already registered try to login" });
+        } else {
+          return res.status(404).send({ "status": "failed", "message": "User not registered. Please try to register first" });
+        }
+      }
+
+      const otpMatch = await bcrypt.compare(otp, tempUser.otp);
+      if (!otpMatch) {
+        return res.status(400).send({ "status": "failed", "message": "Invalid OTP" });
+      }
+
+      if (tempUser.otp_expiry < Date.now()) {
+        return res.status(410).send({ "status": "failed", "message": "OTP has expired" });
+      }
+
       const user = new UserModel({
         name: tempUser.name,
         email: tempUser.email,
         password: tempUser.password,
         tc: tempUser.tc
       });
+
+      const { accessToken, refreshToken } = await user.generateAccessAndRefreshToken();
+
       await user.save();
       // cleaning up the temporary user object
+      console.log("coming till here")
       await TempUserModel.deleteOne({ email });
-      const { accessToken, RefreshToken } = await user.generateAccessAndRefreshToken();
 
       const options = {
         httpOnly: true,
         secure: true
       }
+      return res.status(201)
+        .cookie("accessToken", accessToken, options).cookie("refreshToken", RefreshToken, options).send({ "status": "success", "message": "Registration successful", "accessToken": accessToken, "refreshToken": refreshToken });
 
-      return res.status(201).cookie("accessToken", accessToken, options).cookie("refreshToken", RefreshToken, options).send({ "status": "success", "message": "Registration successful", "accessToken": accessToken, "refreshToken": RefreshToken });
     } catch (error) {
       console.log(error);
       return res.status(500).send({ "status": "failed", "message": "Unable to verify OTP" });
@@ -165,7 +183,7 @@ class UserController {
     const { otp } = req.body;
     const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
     if (!token) {
-      return res.status(401).send({ "status": "failed", "message": "Unauthorized request"})
+      return res.status(401).send({ "status": "failed", "message": "Unauthorized request" })
     }
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
     const email = decodedToken?.email;
@@ -197,8 +215,8 @@ class UserController {
         secure: true
       }
 
-      const {accessToken, refreshToken} = await user.generateAccessAndRefreshToken();
-      return res.status(200).cookie("accessToken", accessToken, options).cookie("refreshToken", refreshToken, options).send({"status": "success", "message": "Login successful", "accessToken": accessToken, "refreshToken": refreshToken});
+      const { accessToken, refreshToken } = await user.generateAccessAndRefreshToken();
+      return res.status(200).cookie("accessToken", accessToken, options).cookie("refreshToken", refreshToken, options).send({ "status": "success", "message": "Login successful", "accessToken": accessToken, "refreshToken": refreshToken });
     } catch (error) {
       console.log(error);
       return res.status(500).send({ "status": "failed", "message": "Unable to verify OTP" });
