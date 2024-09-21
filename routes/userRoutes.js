@@ -7,6 +7,7 @@ import ForgotPasswordController from '../controllers/forgotPasswordController.js
 // ROute Level Middleware - To Protect Route
 router.use('/changepassword', checkUserAuth)
 router.use('/loggeduser', checkUserAuth)
+router.use('/logout', checkUserAuth)
 
 // Public Routes
 router.post('/register', UserController.userRegistration)
@@ -22,6 +23,8 @@ router.post('/reset-password/:id/:token', UserController.userPasswordReset)
 // Protected Route
 router.post('/changepassword', UserController.changeUserPassword)
 router.get('/loggeduser', UserController.loggedUser)
+router.post('/logout', UserController.logout)
+
 
 
 export default router
