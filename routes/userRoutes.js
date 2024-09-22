@@ -3,8 +3,9 @@ const router = express.Router();
 import UserController from '../controllers/userController.js';
 import checkUserAuth from '../middlewares/auth-middleware.js';
 import ForgotPasswordController from '../controllers/forgotPasswordController.js';
+import {route} from "express/lib/application.js";
 
-// ROute Level Middleware - To Protect Route
+// Route Level Middleware - To Protect Route
 router.use('/changepassword', checkUserAuth)
 router.use('/loggeduser', checkUserAuth)
 router.use('/logout', checkUserAuth)
@@ -19,7 +20,8 @@ router.post('/verify-forgot-password-otp', ForgotPasswordController.verifyForgot
 router.post('/set-new-password', ForgotPasswordController.setNewPassword)
 router.post('/send-reset-password-email', UserController.sendUserPasswordResetEmail)
 router.post('/reset-password/:id/:token', UserController.userPasswordReset)
-
+router.post('/refresh-token', UserController.refreshToken)
+router.post('/resend-otp', UserController.resendOtp)
 // Protected Route
 router.post('/changepassword', UserController.changeUserPassword)
 router.get('/loggeduser', UserController.loggedUser)

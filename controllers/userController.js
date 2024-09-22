@@ -102,7 +102,7 @@ class UserController {
       }
 
       if (tempUser.otp_expiry < Date.now()) {
-        return res.status(410).send({ "status": "failed", "message": "OTP has expired" });
+        return res.status(410).send({ "status": "failed", "message": "OTP has expired. Please try to register again" });
       }
 
       const user = new UserModel({
@@ -318,6 +318,51 @@ class UserController {
     }
   }
 
+  static refreshToken = async (req, res) => {
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+    if (!incomingRefreshToken) {
+      return res.status(401).send({"status": "failed", "message": "unauthorized request"})
+    }
+
+    try{
+      const decodedToken = jwt.verify(
+          incomingRefreshToken,
+          process.env.REFRESH_TOKEN_SECRET
+      )
+
+      const user = await UserModel.findById(decodedToken?._id)
+
+      if (!user) {
+        return res.status(401).send({"status": "failed", "message": "unauthorized refresh Token"})
+      }
+
+      if (incomingRefreshToken !== user?.refreshToken) {
+        return res.status(401).send({"status":"failed", "message": "Refresh token is expired or used"})
+      }
+
+      const options = {
+        httpOnly: true,
+        secure: true
+      }
+
+      const {accessToken, refreshToken} = await user.generateAccessAndRefreshToken()
+
+      return res.status(200)
+          .cookie("accessToken", accessToken, options)
+          .cookie("refreshToken", refreshToken, options)
+          .send({"status": "success", "message": "Access Token refreshed", "accessToken": accessToken, "refreshToken": refreshToken})
+
+    }catch (error){
+      console.error(error)
+      return res.status(500).send({"status": "failed", "message": "Unable to refresh token"})
+    }
+
+  }
+
+  static resendOtp = async (req, res) => {
+
+  }
 
 }
 
