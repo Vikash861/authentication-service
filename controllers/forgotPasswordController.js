@@ -2,6 +2,7 @@ import generateOTP from '../utils/otpGenerator.js'
 import transporter from '../config/emailConfig.js'
 import findUserByEmail from "../utils/findUserByEmail.js";
 import bcrypt from 'bcrypt'
+import sendOTPEmail from '../utils/sendOtpEmail.js';
 
 class ForgotPasswordController {
 
@@ -24,21 +25,11 @@ class ForgotPasswordController {
       user.otp_expiry = Date.now() + 5 * 60000;
       await user.save();
 
-      const mailOptions = {
-        from: process.env.EMAIL,
-        to: email,
-        subject: 'Your OTP Code',
-        text: `Your OTP code is ${otp}`
-      };
-
       await transporter.sendMail(mailOptions);
 
-      const accessToken = await user.getAccessToken();
-      const options = {
-        httpOnly: 'true',
-        secure: 'true',
-      }
-      res.status(200).cookie("accessToken", accessToken, options).send({ "status": "success", "message": "OTP sent to your email. Verify it to complete login.", "accessToken": accessToken });
+      await sendOTPEmail(email, 'Forgot Password OTP', `Your forgot password OTP is ${otp}`)
+
+      res.status(200).send({ "status": "success", "message": "OTP sent to your email." });
 
     } catch (error) {
       console.error(error);
@@ -48,16 +39,10 @@ class ForgotPasswordController {
   };
 
   static verifyForgotPasswordOtp = async (req, res) => {
-    const { otp } = req.body;
-    const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
-    if (!token) {
-      return res.status(401).send({ "status": "failed", "message": "Unauthorized request" })
-    }
-    const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
-    const email = decodedToken?.email;
-
-    if (!otp) {
-      return res.status(400).json({ "status": "failed", "message": "OTP not provided" });
+    const { email, otp } = req.body;
+  
+    if (!email || !otp) {
+      return res.status(400).json({ "status": "failed", "message": "Missing required fields" });
     }
 
     try {
@@ -77,17 +62,20 @@ class ForgotPasswordController {
       user.otp_expiry = null;
       await user.save();
 
-      const accessToken = await user.getAccessToken();
+      const {accessToken, refreshToken} = await user.generateAccessAndRefreshToken();
 
       const options = {
         httpOnly: true,
         secure: true,
       }
 
-      return res.status(200).cookie("accessToken", accessToken, options).json({
+      return res.status(200).cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json({
         "status": "success",
         "message": "OTP verified, use the token to reset your password.",
-        "accessToken": accessToken
+        "accessToken": accessToken,
+        "refreshToken": refreshToken
       });
 
 
@@ -99,13 +87,8 @@ class ForgotPasswordController {
 
   static setNewPassword = async (req, res) => {
     const { password, confirm_password } = req.body;
-    const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
-    if (!token) {
-      return res.status(401).send({ "status": "failed", "message": "Unauthorized request" })
-    }
-    const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
-    const email = decodedToken?.email;
-
+    const { email } = req.user;
+    
     if (!password || !confirm_password) {
       return res.status(400).json({ "status": "failed", "message": "Please provide Password and Confirm Password" });
     }
@@ -127,15 +110,15 @@ class ForgotPasswordController {
       user.password = hashedPassword;
       await user.save();
 
-      return res.status(200).json({ "status": "success", "message": "Password updated successfully" });
+      return res.status(200)
+      .json({ "status": "success", "message": "Password updated successfully" });
 
     } catch (error) {
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({ "status": "failed", "message": "Access token expired, please request a new OTP" });
-      }
       console.error(error);
-      return res.status(500).json({ "status": "failed", "message": "Error updating password" });
+      return res.status(500)
+      .json({ "status": "failed", "message": "Error updating password" });
     }
+    
   };
 
 }
