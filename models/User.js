@@ -9,7 +9,8 @@ const userSchema = new mongoose.Schema({
   otp: { type: String, default: null },
   otp_expiry: { type: Date, default: null },
   refreshToken: { type: String },
-  tc: { type: Boolean, required: true }
+  tc: { type: Boolean, required: true },
+  logoutAt: { type: Date, default: null }
 })
 
 userSchema.methods.isPasswordCorrect = async function(password){

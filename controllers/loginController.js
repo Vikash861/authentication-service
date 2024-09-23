@@ -69,6 +69,7 @@ class loginController {
             }
 
             // cleaning up otp and expiration from user
+
             user.otp = null;
             user.otp_expiry = null;
             await user.save();

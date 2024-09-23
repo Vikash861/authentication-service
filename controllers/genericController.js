@@ -6,9 +6,9 @@ import transporter from '../config/emailConfig.js'
 import generateOTP from '../utils/otpGenerator.js'
 import sendOTPEmail from '../utils/sendOtpEmail.js'
 
-class UserController {
+class genericController {
 
-  static genericController = async (req, res) => {
+  static changeUserPassword = async (req, res) => {
     const { password, password_confirmation } = req.body
     if (password && password_confirmation) {
       if (password !== password_confirmation) {
@@ -35,6 +35,9 @@ class UserController {
           {
             $unset: {
               refreshToken: 1
+            },
+            $set: {
+              logoutAt: new Date()
             }
           },
           {
