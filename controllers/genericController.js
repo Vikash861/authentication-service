@@ -1,8 +1,6 @@
 import UserModel from '../models/User.js'
-import TempUserModel from '../models/TempUser.js'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
-import transporter from '../config/emailConfig.js'
 import generateOTP from '../utils/otpGenerator.js'
 import sendOTPEmail from '../utils/sendOtpEmail.js'
 

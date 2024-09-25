@@ -1,8 +1,8 @@
 import generateOTP from '../utils/otpGenerator.js'
-import transporter from '../config/emailConfig.js'
 import findUserByEmail from "../utils/findUserByEmail.js";
 import bcrypt from 'bcrypt'
 import sendOTPEmail from '../utils/sendOtpEmail.js';
+import jwt from 'jsonwebtoken';
 
 class ForgotPasswordController {
 
@@ -25,14 +25,12 @@ class ForgotPasswordController {
       user.otp_expiry = Date.now() + 5 * 60000;
       await user.save();
 
-      await transporter.sendMail(mailOptions);
-
       await sendOTPEmail(email, 'Forgot Password OTP', `Your forgot password OTP is ${otp}`)
 
       res.status(200).send({ "status": "success", "message": "OTP sent to your email." });
 
     } catch (error) {
-      console.error(error);
+      console.error('Error in forgotPassword:', error.message, error.stack);
       res.status(500).send({ "status": "failed", "message": "Unable to send OTP" });
     }
 
@@ -40,15 +38,14 @@ class ForgotPasswordController {
 
   static verifyForgotPasswordOtp = async (req, res) => {
     const { email, otp } = req.body;
-  
+
     if (!email || !otp) {
       return res.status(400).json({ "status": "failed", "message": "Missing required fields" });
     }
 
     try {
       const user = await findUserByEmail(email);
-
-      const isOtpValid = await bcrypt.compare(otp, user.otp);;
+      const isOtpValid = await bcrypt.compare(otp, user.otp);
       if (!isOtpValid) {
         return res.status(400).json({ "status": "failed", "message": "Invalid OTP" });
       }
@@ -62,33 +59,30 @@ class ForgotPasswordController {
       user.otp_expiry = null;
       await user.save();
 
-      const {accessToken, refreshToken} = await user.generateAccessAndRefreshToken();
-
+      const resetToken = jwt.sign({ email: user.email }, process.env.JWT_SECRET, { expiresIn: '10m' });
       const options = {
         httpOnly: true,
-        secure: true,
+        secure: true
       }
 
-      return res.status(200).cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", refreshToken, options)
-      .json({
-        "status": "success",
-        "message": "OTP verified, use the token to reset your password.",
-        "accessToken": accessToken,
-        "refreshToken": refreshToken
-      });
+      return res.status(200)
+        .cookie("resetToken", resetToken, options)
+        .json({
+          "status": "success",
+          "message": "OTP verified try to reset password",
+          "resetToken": resetToken
+        });
 
 
     } catch (error) {
-      console.error(error);
-      res.status(500).send({ "status": "failed", "message": "Error verifying OTP" });
+      console.error('Error in verifyForgotPasswordOtp:', error.message, error.stack);
+      res.status(500).send({ "status": "failed", "message": "Error verifying OTP. Try Forgot password again" });
     }
   };
 
   static setNewPassword = async (req, res) => {
     const { password, confirm_password } = req.body;
-    const { email } = req.user;
-    
+
     if (!password || !confirm_password) {
       return res.status(400).json({ "status": "failed", "message": "Please provide Password and Confirm Password" });
     }
@@ -98,12 +92,17 @@ class ForgotPasswordController {
     }
 
     try {
-
-      const user = await findUserByEmail(email);
+      const token = req.cookies?.resetToken || req.header("Authorization")?.replace("Bearer ", "");
+      if (!token) {
+        return res.status(401).json({ "status": "failed", "message": "Unauthorized Request" });
+      }
+      
+      const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await findUserByEmail(decodedToken.email);
       if (!user) {
         return res.status(400).json({ "status": "failed", "message": "User not found" });
       }
-      
+
       // Hash and update the new password
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
@@ -111,14 +110,14 @@ class ForgotPasswordController {
       await user.save();
 
       return res.status(200)
-      .json({ "status": "success", "message": "Password updated successfully" });
+        .json({ "status": "success", "message": "Password updated successfully" });
 
     } catch (error) {
-      console.error(error);
+      console.error('Error in setNewPassword:', error.message, error.stack);
       return res.status(500)
-      .json({ "status": "failed", "message": "Error updating password" });
+        .json({ "status": "failed", "message": "Error updating password" });
     }
-    
+
   };
 
 }

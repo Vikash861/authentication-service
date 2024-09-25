@@ -7,7 +7,6 @@ import regisgterController from '../controllers/registerController.js';
 import loginController from '../controllers/loginController.js';
 
 // Route Level Middleware - To Protect Route
-router.use('/set-new-password', checkUserAuth)
 router.use('/changepassword', checkUserAuth)
 router.use('/loggeduser', checkUserAuth)
 router.use('/logout', checkUserAuth)
@@ -21,8 +20,9 @@ router.post('/forgot-password', ForgotPasswordController.forgotPassword)
 router.post('/verify-forgot-password-otp', ForgotPasswordController.verifyForgotPasswordOtp)
 router.post('/refresh-token', genericController.refreshToken)
 router.post('/resend-otp', genericController.resendOtp)
-// Protected Route
 router.post('/set-new-password', ForgotPasswordController.setNewPassword)
+
+// Protected Route
 router.post('/changepassword', genericController.changeUserPassword)
 router.get('/loggeduser', genericController.loggedUser)
 router.post('/logout', genericController.logout)

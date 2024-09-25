@@ -1,8 +1,6 @@
 import UserModel from '../models/User.js'
 import TempUserModel from '../models/TempUser.js'
 import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken'
-import transporter from '../config/emailConfig.js'
 import generateOTP from '../utils/otpGenerator.js'
 import sendOTPEmail from '../utils/sendOtpEmail.js'
 
@@ -68,11 +66,11 @@ class loginController {
                 return res.status(400).send({ "status": "failed", "message": "OTP has expired please try resend otp" });
             }
 
-            // cleaning up otp and expiration from user
-
-            user.otp = null;
-            user.otp_expiry = null;
-            await user.save();
+            // cleaning up logoutAt, otp and expiration from user
+            await UserModel.updateOne(
+                { _id: user._id },
+                { $unset: { logoutAt: 1 }, $set: { otp: null, otp_expiry: null } }
+            );
 
             const options = {
                 httpOnly: true,
