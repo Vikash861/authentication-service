@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node app",
-    "dev": "nodemon app"
+    "start": "node dist/app.js",
+    "build": "tsc",
+    "dev": "nodemon --watch src --exec ts-node src/app.ts"
   },
   "keywords": [],
   "author": "",
@@ -23,6 +24,15 @@
     "otp-generator": "^4.0.1"
   },
   "devDependencies": {
-    "nodemon": "^2.0.15"
+    "@types/bcrypt": "^5.0.2",
+    "@types/cookie-parser": "^1.4.7",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.7.5",
+    "@types/nodemailer": "^6.4.16",
+    "nodemon": "^2.0.15",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
   }
 }
