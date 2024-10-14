@@ -6,11 +6,6 @@ import sendOTPEmail from '../utils/sendOtpEmail.js'
 import { Request, Response } from 'express';
 import { CustomRequest } from '../middlewares/auth-middleware.js';
 
-interface IUserRequest extends Request {
-  user: IUser
-}
-
-
 interface DecodedToken extends JwtPayload {
   _id: string;
 }
@@ -52,8 +47,7 @@ class genericController {
       });
     }
   };
-
-
+  
   static loggedUser = async (req: CustomRequest, res: Response): Promise<Response> => {
     return res.send({ user: req.user });
   };

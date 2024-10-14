@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import genericController from '../controllers/genericController.js';
 import checkUserAuth from '../middlewares/auth-middleware.js';
 import ForgotPasswordController from '../controllers/forgotPasswordController.js';
-import regisgterController from '../controllers/registerController.js';
+import RegisterController from '../controllers/registerController.js';
 import loginController from '../controllers/loginController.js';
 import { CustomRequest } from '../middlewares/auth-middleware.js';
 
@@ -14,8 +14,9 @@ router.use('/loggeduser', checkUserAuth);
 router.use('/logout', checkUserAuth);
 
 // Public Routes
-router.post('/register', (req: Request, res: Response) => { regisgterController.userRegistration(req, res) });
-router.post('/verify-otp', (req: Request, res: Response) => { regisgterController.verifyOtp(req, res) });
+router.post('/register', (req: Request, res: Response) => { RegisterController.userRegistration(req, res) });
+
+router.post('/verify-otp', (req: Request, res: Response) => { RegisterController.verifyOtp(req, res) });
 router.post('/login', (req: Request, res: Response) => { loginController.userLogin(req, res) });
 router.post('/verify-login-otp', (req: Request, res: Response) => { loginController.verifyLoginOtp(req, res) });
 router.post('/forgot-password', (req: Request, res: Response) => { ForgotPasswordController.forgotPassword(req, res) });

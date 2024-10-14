@@ -1,8 +1,8 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
-export interface IUser extends Document {
+export interface IUser extends mongoose.Document {
   name: string;
   email: string;
   password: string;
@@ -17,7 +17,7 @@ export interface IUser extends Document {
   generateAccessAndRefreshToken(): Promise<{ accessToken: string; refreshToken: string }>;
 }
 
-const userSchema: Schema<IUser> = new Schema({
+const userSchema = new mongoose.Schema<IUser>({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, trim: true },
   password: { type: String, required: true, trim: true },

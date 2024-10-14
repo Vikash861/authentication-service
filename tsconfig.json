@@ -8,7 +8,7 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "moduleResolution": "NodeNext"
+    "moduleResolution": "NodeNext",
   },
   "include": [
     "src/**/*.ts"

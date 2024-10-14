@@ -1,6 +1,6 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose from "mongoose";
 
-export interface ITempUser extends Document {
+export interface ITempUser extends mongoose.Document {
   name: string;
   email: string;
   password: string;
@@ -9,7 +9,7 @@ export interface ITempUser extends Document {
   tc: boolean;
 }
 
-const TempUserSchema: Schema = new Schema({
+const TempUserSchema = new mongoose.Schema<ITempUser>({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, trim: true },
   password: { type: String, required: true, trim: true },
@@ -17,7 +17,6 @@ const TempUserSchema: Schema = new Schema({
   otp_expiry: { type: Date, default: null },
   tc: { type: Boolean, required: true }
 });
-
 
 const TempUserModel = mongoose.model<ITempUser>("TempUser", TempUserSchema);
 
